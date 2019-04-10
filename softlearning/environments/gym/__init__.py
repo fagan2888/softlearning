@@ -129,6 +129,8 @@ def register_general_environments():
 
 def register_multiworld_environments():
     """Register custom environments from multiworld package."""
+    import multiworld.envs.pygame
+    import multiworld.envs.mujoco
     for multiworld_environment in MULTIWORLD_ENVIRONMENT_SPECS:
         gym.register(**multiworld_environment)
 

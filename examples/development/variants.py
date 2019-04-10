@@ -189,6 +189,9 @@ ENVIRONMENT_PARAMS = {
         'Wall-v0': {
             'observation_keys': ('observation', 'desired_goal'),
         },
+        'ImageFixed-v0': {
+            'image_shape': (8, 8, 3),
+        },
     }
 }
 
