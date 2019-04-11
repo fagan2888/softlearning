@@ -113,7 +113,7 @@ NUM_EPOCHS_PER_DOMAIN = {
     'HandManipulateEgg': int(1e4),
     'HandManipulateBlock': int(1e4),
     'HandReach': int(1e4),
-    'Point2DEnv': int(200),
+    'Point2DEnv': int(50),
     'Reacher': int(200),
     'Pendulum': 10,
 }
