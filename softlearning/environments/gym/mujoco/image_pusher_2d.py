@@ -1,18 +1,31 @@
+import mujoco_py
 import numpy as np
 
 from softlearning.environments.helpers import random_point_in_circle
 from .pusher_2d import Pusher2dEnv
+import inspect
 
 
 class ImagePusher2dEnv(Pusher2dEnv):
     def __init__(self, image_shape, *args, **kwargs):
-        self._Serializable__initialize(locals())
+        # self._Serializable__initialize(locals())
         self.image_shape = image_shape
+        self.viewer = None
+        self._viewers = {}
         Pusher2dEnv.__init__(self, *args, **kwargs)
 
     def _get_obs(self):
         width, height = self.image_shape[:2]
-        image = self.render(mode='rgb_array', width=width, height=height)
+        # image = self.render(mode='rgb_array', width=width, height=height)
+
+        mode = 'rgb_array'
+        self._get_viewer(mode).render(width, height)
+        # window size used for old mujoco-py:
+        data = self._get_viewer(mode).read_pixels(width, height, depth=False)
+        # original image is upside-down, so flip it
+        # original image is upside-down, so flip it
+        image = data[::-1, :, :]
+
         image = ((2.0 / 255.0) * image - 1.0)
 
         return np.concatenate([
@@ -20,6 +33,18 @@ class ImagePusher2dEnv(Pusher2dEnv):
             self.sim.data.qpos.flat[self.JOINT_INDS],
             self.sim.data.qvel.flat[self.JOINT_INDS],
         ]).reshape(-1)
+
+    def _get_viewer(self, mode):
+        self.viewer = self._viewers.get(mode)
+        if self.viewer is None:
+            if mode == 'human':
+                self.viewer = mujoco_py.MjViewer(self.sim)
+            elif mode == 'rgb_array' or mode == 'depth_array':
+                self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, -1)
+
+            self.viewer_setup()
+            self._viewers[mode] = self.viewer
+        return self.viewer
 
     def step(self, action):
         """Step, computing reward from 'true' observations and not images."""
@@ -133,6 +158,105 @@ class ImageForkReacher2dEnv(ImagePusher2dEnv):
         self.set_state(qpos, qvel)
 
         return self._get_obs()
+
+    def _Serializable__initialize(self, locals_):
+        self.__initialize(locals_)
+        self._Serializable__initialized = True
+
+    def __initialize(self, locals_):
+        if getattr(self, "_Serializable__initialized", False):
+            return
+
+        signature = inspect.signature(self.__init__)
+        positional_keys = [
+            p.name for p in signature.parameters.values()
+            if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+        ]
+
+        var_positional_keys = [
+            p.name for p in signature.parameters.values()
+            if p.kind == p.VAR_POSITIONAL
+        ]
+
+        keyword_keys = [
+            p.name for p in signature.parameters.values()
+            if p.kind == p.KEYWORD_ONLY
+        ]
+
+        var_keyword_keys = [
+            p.name for p in signature.parameters.values()
+            if p.kind == p.VAR_KEYWORD
+        ]
+
+        if len(var_positional_keys) > 1:
+            raise NotImplementedError(
+                "Can't yet handle more than one variable args. Got: {}"
+                "".format(var_positional_keys))
+        if len(var_keyword_keys) > 1:
+            raise NotImplementedError(
+                "Can't yet handle more than one variable kwargs. Got: {}"
+                "".format(var_keyword_keys))
+
+        positional_values = [
+            locals_[key] for key in positional_keys if key in locals_
+        ]
+        var_positional_values = (
+            locals_.get(var_positional_keys[0], ())
+            if var_positional_keys
+            else ())
+        keyword_values = {
+            key: locals_[key]
+            for key in keyword_keys if key in locals_
+        }
+        var_keyword_values = (
+            locals_.get(var_keyword_keys[0], {})
+            if var_keyword_keys
+            else {})
+
+        bound_arguments = signature.bind(*positional_values,
+                                         *var_positional_values,
+                                         **keyword_values, **var_keyword_values)
+        bound_arguments.apply_defaults()
+
+        self.__args = bound_arguments.args
+        self.__kwargs = bound_arguments.kwargs
+
+        self.__initialized = True
+
+    def __getstate__(self):
+        assert getattr(self, '_Serializable__initialized', False), (
+            "Cannot get state from uninitialized Serializable. Forgot to call"
+            " `self._Serializable__initialize` in your __init__ method?")
+
+        state = {
+            '__args': self.__args,
+            '__kwargs': self.__kwargs,
+        }
+
+        return state
+
+    def __setstate__(self, state):
+        out = type(self)(*state["__args"], **state["__kwargs"])
+        self.__dict__.update(out.__dict__)
+
+    @staticmethod
+    def clone(instance):
+        assert isinstance(instance, Serializable), (
+            "Can only clone Serializable objects. Got: {}"
+            "".format(type(instance)))
+        assert getattr(instance, '_Serializable__initialized', False), (
+            "Cannot clone an uninitialized Serializable. Forgot to call"
+            " `self._Serializable__initialize` in your __init__ method?")
+
+        state = instance.__getstate__()
+
+        signature = inspect.signature(instance.__init__)
+        bound_arguments = signature.bind(*state['__args'], **state['__kwargs'])
+        bound_arguments.apply_defaults()
+
+        out = type(instance)(*bound_arguments.args, **bound_arguments.kwargs)
+
+        return out
 
 
 class BlindForkReacher2dEnv(ImageForkReacher2dEnv):

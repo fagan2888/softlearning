@@ -9,7 +9,8 @@ from softlearning.misc.utils import PROJECT_PATH
 from softlearning.environments.helpers import random_point_in_circle
 
 
-class Pusher2dEnv(Serializable, MujocoEnv):
+# class Pusher2dEnv(Serializable, MujocoEnv):
+class Pusher2dEnv(MujocoEnv):
     """Two-dimensional Pusher environment
 
     Pusher2dEnv is a two-dimensional 3-DoF manipulator. Task is to slide a
@@ -46,7 +47,7 @@ class Pusher2dEnv(Serializable, MujocoEnv):
         goal_distance_coeff ('float'): Coefficient for the object-to-goal
             distance cost.
         """
-        self._Serializable__initialize(locals())
+        # self._Serializable__initialize(locals())
 
         self._goal_mask = [coordinate != 'any' for coordinate in goal]
         self._goal = np.array(goal)[self._goal_mask].astype(np.float32)
