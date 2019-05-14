@@ -381,7 +381,7 @@ def get_variant_spec_image(universe,
         ['image_shape'])
 
     if 'image' in task.lower() or 'image' in domain.lower():
-        preprocessor_type = "vae"
+        preprocessor_type = "conv"
         if preprocessor_type == "conv":
             preprocessor_params = tune.grid_search([
                 {
@@ -401,7 +401,7 @@ def get_variant_spec_image(universe,
                 for conv_kernel_size in (3, )
                 for conv_strides in (2, )
                 for normalization_type in (None, )
-                for num_layers in (4, )
+                for num_layers in (3, )
                 for use_global_average_pool in (False, )
                 for downsampling_type in ('conv', )
                 if (image_shape[0] / (conv_strides ** num_layers)) >= 1
